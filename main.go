@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -10,12 +11,23 @@ import (
 )
 
 var (
+	vaultDir    string
 	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
 )
+
+func init() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal("Error getting home directory", err)
+	}
+
+	vaultDir = fmt.Sprintf("%s/.tuigote", homeDir)
+}
 
 type model struct {
 	newFileInput           textinput.Model
 	createFileInputVisible bool
+	currentFile            *os.File
 }
 
 func (m model) Init() tea.Cmd {
@@ -33,8 +45,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "ctrl+c", "q":
 			return m, tea.Quit
+
 		case "ctrl+n":
 			m.createFileInputVisible = true
+			return m, nil
+
+		case "enter":
+			//todo: create file
+			filename := m.newFileInput.Value()
+			if filename != "" {
+				filepath := fmt.Sprintf("%s/%s.md", vaultDir, filename)
+
+				if _, err := os.Stat(filepath); err == nil {
+					return m, nil
+				}
+
+				f, err := os.Create(filepath)
+				if err != nil {
+					log.Fatalf("%v", err)
+				}
+
+				m.currentFile = f
+				m.createFileInputVisible = false
+				m.newFileInput.SetValue("")
+			}
+
 			return m, nil
 		}
 	}
@@ -66,6 +101,11 @@ func (m model) View() string {
 }
 
 func initializeMode() model {
+
+	err := os.MkdirAll(vaultDir, 0750)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	//initialize new file input
 	ti := textinput.New()
