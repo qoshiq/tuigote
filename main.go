@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -28,6 +29,7 @@ type model struct {
 	newFileInput           textinput.Model
 	createFileInputVisible bool
 	currentFile            *os.File
+	noteTextArea           textarea.Model
 }
 
 func (m model) Init() tea.Cmd {
@@ -78,6 +80,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.newFileInput, cmd = m.newFileInput.Update(msg)
 	}
 
+	if m.currentFile != nil {
+		m.noteTextArea, cmd = m.noteTextArea.Update(msg)
+	}
+
 	return m, cmd
 }
 
@@ -97,10 +103,14 @@ func (m model) View() string {
 		view = m.newFileInput.View()
 	}
 
+	if m.currentFile != nil {
+		view = m.noteTextArea.View()
+	}
+
 	return fmt.Sprintf("\n%s\n\n%s\n\n%s", welcome, view, help)
 }
 
-func initializeMode() model {
+func initializeModel() model {
 
 	err := os.MkdirAll(vaultDir, 0750)
 	if err != nil {
@@ -116,14 +126,21 @@ func initializeMode() model {
 	ti.Cursor.Style = cursorStyle
 	ti.PromptStyle = cursorStyle
 
+	//textarea
+	ta := textarea.New()
+	ta.Placeholder = "your note...?"
+	ta.ShowLineNumbers = false
+	ta.Focus()
+
 	return model{
 		newFileInput:           ti,
 		createFileInputVisible: false,
+		noteTextArea:           ta,
 	}
 }
 
 func main() {
-	p := tea.NewProgram(initializeMode())
+	p := tea.NewProgram(initializeModel())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("there's been an error goon: %v", err)
 		os.Exit(1)
