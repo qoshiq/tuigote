@@ -52,7 +52,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.createFileInputVisible = true
 			return m, nil
 
+		case "ctrl+s":
+
+			if m.currentFile == nil {
+				break
+			}
+
+			if err := m.currentFile.Truncate(0); err != nil {
+				fmt.Println("can not save the file x(")
+				return m, nil
+			}
+
+			if _, err := m.currentFile.Seek(0, 0); err != nil {
+				fmt.Println("can not save the file x(")
+				return m, nil
+			}
+
+			if _, err := m.currentFile.WriteString(m.noteTextArea.Value()); err != nil {
+				fmt.Println("can not save the file x(")
+				return m, nil
+			}
+
+			if err := m.currentFile.Close(); err != nil {
+				fmt.Println("can not close the file.")
+			}
+
+			m.currentFile = nil
+			m.noteTextArea.SetValue("")
+
+			return m, nil
+
 		case "enter":
+			if m.currentFile != nil {
+				break
+			}
 			//todo: create file
 			filename := m.newFileInput.Value()
 			if filename != "" {
@@ -97,7 +130,7 @@ func (m model) View() string {
 		PaddingRight(2)
 
 	welcome := style.Render("welcome to tuigote :x")
-	help := "Ctrl+N:new file | Ctrl+S:save | Ctrl+L:list | Esc:back/save | Ctrl+Q:quit"
+	help := "Ctrl+N:new file | Ctrl+S:save | Ctrl+L:list | Esc:back/save | Ctrl+C/q:quit"
 	view := " "
 	if m.createFileInputVisible {
 		view = m.newFileInput.View()
