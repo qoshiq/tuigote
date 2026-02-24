@@ -105,6 +105,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentFile != nil {
 				break
 			}
+
+			if m.showingList {
+				item, ok := m.list.SelectedItem().(item)
+
+				if ok {
+					filepath := fmt.Sprintf("%s|%s", vaultDir, item.title)
+
+					content, err := os.ReadFile(filepath)
+					if err != nil {
+						log.Printf("Error reading file: %v", err)
+						return m, nil
+					}
+
+					m.noteTextArea.SetValue(string(content))
+
+					f, err := os.OpenFile(filepath, os.O_RDWR, 0644)
+					if err != nil {
+						log.Printf("Error reading file: %v", err)
+						return m, nil
+					}
+
+					m.currentFile = f
+					m.showingList = false
+				}
+				return m, nil
+			}
 			//todo: create file
 			filename := m.newFileInput.Value()
 			if filename != "" {
