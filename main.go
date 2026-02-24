@@ -74,8 +74,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showingList = true
 			return m, nil
 
-		case "ctrl+s":
+		case "esc":
+			if m.createFileInputVisible {
+				m.createFileInputVisible = false
+			}
 
+			if m.currentFile != nil {
+				m.noteTextArea.SetValue("")
+				m.currentFile = nil
+			}
+
+			if m.showingList {
+				if m.list.FilterState() == list.Filtering {
+					break
+				}
+
+				m.showingList = false
+			}
+
+			return m, nil
+
+		case "ctrl+s":
 			if m.currentFile == nil {
 				break
 			}
@@ -192,7 +211,7 @@ func (m model) View() string {
 		PaddingRight(2)
 
 	welcome := style.Render("welcome to tuigote :x")
-	help := "Ctrl+N:new file | Ctrl+S:save | Ctrl+L:list | Esc:back/save | Ctrl+C/q:quit"
+	help := "Ctrl+N:new file | Ctrl+S:save | Ctrl+L:list | Esc:back | Ctrl+C/q:quit"
 	view := " "
 
 	if m.createFileInputVisible {
