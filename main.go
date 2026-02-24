@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,6 +15,7 @@ import (
 var (
 	vaultDir    string
 	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	docStyle    = lipgloss.NewStyle().Margin(1, 2)
 )
 
 func init() {
@@ -25,11 +27,21 @@ func init() {
 	vaultDir = fmt.Sprintf("%s/.tuigote", homeDir)
 }
 
+type item struct {
+	title, desc string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
 type model struct {
 	newFileInput           textinput.Model
 	createFileInputVisible bool
 	currentFile            *os.File
 	noteTextArea           textarea.Model
+	list                   list.Model
+	showingList            bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -40,6 +52,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		m.list.SetSize(msg.Width-h, msg.Height-v-5)
 
 	case tea.KeyMsg:
 
@@ -50,6 +65,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "ctrl+n":
 			m.createFileInputVisible = true
+			return m, nil
+
+		case "ctrl+l":
+			m.showingList = true
 			return m, nil
 
 		case "ctrl+s":
@@ -117,6 +136,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.noteTextArea, cmd = m.noteTextArea.Update(msg)
 	}
 
+	if m.showingList {
+		m.list, cmd = m.list.Update(msg)
+	}
+
 	return m, cmd
 }
 
@@ -138,6 +161,10 @@ func (m model) View() string {
 
 	if m.currentFile != nil {
 		view = m.noteTextArea.View()
+	}
+
+	if m.showingList {
+		view = m.list.View()
 	}
 
 	return fmt.Sprintf("\n%s\n\n%s\n\n%s", welcome, view, help)
@@ -165,10 +192,22 @@ func initializeModel() model {
 	ta.ShowLineNumbers = false
 	ta.Focus()
 
+	//list
+	noteList := listFiles()
+	// fmt.Println(noteList)
+	finalList := list.New(noteList, list.NewDefaultDelegate(), 0, 0)
+	finalList.Title = "All Notes"
+	finalList.Styles.Title = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("16")).
+		Background(lipgloss.Color("254")).
+		Padding(0, 1)
+
 	return model{
 		newFileInput:           ti,
 		createFileInputVisible: false,
 		noteTextArea:           ta,
+		list:                   finalList,
+		// list:                   list.New(noteList, list.NewDefaultDelegate(), 0, 0),
 	}
 }
 
@@ -178,4 +217,30 @@ func main() {
 		fmt.Printf("there's been an error goon: %v", err)
 		os.Exit(1)
 	}
+}
+
+func listFiles() []list.Item {
+	items := make([]list.Item, 0)
+
+	entries, err := os.ReadDir(vaultDir)
+	if err != nil {
+		log.Fatal("Error reading notes")
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+
+			modTime := info.ModTime().Format("2006-01-02 15:04")
+
+			items = append(items, item{
+				title: entry.Name(),
+				desc:  fmt.Sprintf("Modified : %s", modTime),
+			})
+		}
+	}
+	return items
 }
